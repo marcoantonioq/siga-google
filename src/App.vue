@@ -1,17 +1,17 @@
 <template>
   <div>
     SIGA
-    <ShowTables :tables="APP.tables" />
+    <!-- <ShowTables :tables="APP.tables" /> -->
   </div>
 </template>
 
 <script setup>
 
 import { useApp } from './composables/app.js';
-import ShowTables from "./components/ShowTables.vue"
+// import ShowTables from "./components/ShowTables.vue"
 
 const APP = useApp();
-console.log("App: ", APP.tables)
+console.log("App: ", APP)
 
 </script>
 
