@@ -1,5 +1,7 @@
 import { reactive, watch } from "vue";
-import SIGA from "./siga";
+import SIGA from "../core/siga";
+
+SIGA.setFetchGoogle();
 
 const safeLocal = (key, defaultValue) => {
   try {

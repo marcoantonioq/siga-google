@@ -2,14 +2,18 @@
   "name": "siga-google",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
+    "siga": "node scripts/siga.js",
+    "clasp": "clasp push --watch clasp/",
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
-    "single": " npx html-inline dist/index.html -o dist/single-file.html"
+    "html-inline": " npx html-inline dist/index.html -o dist/single-file.html"
   },
   "dependencies": {
     "core-js": "^3.8.3",
+    "dotenv": "^16.4.5",
     "vue": "^3.2.13",
     "xlsx": "^0.18.5"
   },

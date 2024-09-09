@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SIGA</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <!-- SIGA -->
+    <script src="https://cdn.jsdelivr.net/gh/marcoantonioq/siga@dev/google/src/siga.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/marcoantonioq/siga@dev/google/src/style.css"
+    />
+    <!-- <script src="./siga.js"></script> -->
+    <!-- <link rel="stylesheet" href="style.css" /> -->
+  </head>
+
+  <body>
+    <div id="app">
+      <button @click="toggleFullscreen" id="fullscreen-btn">
+        <i class="fas fa-expand"></i>
+      </button>
+
+      <div class="progress-bar" :class="{ 'is-loading': APP.loading }"></div>
+      <h1>SIGA</h1>
+
+      <div class="form-group">
+        <label for="cookie">Cookie de Navegação:</label>
+        <input
+          type="text"
+          id="cookie"
+          v-model="APP.filter.cookie"
+          placeholder="Digite o cookie de navegação"
+          :disabled="APP.loading"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="startDate">Data de Início</label>
+        <input
+          type="date"
+          id="startDate"
+          v-model="APP.filter.startDate"
+          :disabled="APP.loading"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="endDate">Data de Término</label>
+        <input
+          type="date"
+          id="endDate"
+          v-model="APP.filter.endDate"
+          :disabled="APP.loading"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="endDate">Unidade / Igreja / ADM / SEC</label>
+        <input
+          type="text"
+          id="endDate"
+          v-model="APP.filter.unidade"
+          :disabled="APP.loading"
+        />
+      </div>
+
+      <button class="success" @click="APP.loadAll" :disabled="APP.loading">
+        Carregar
+      </button>
+
+      <div v-if="APP.loading" v-html="APP.message"></div>
+      <div v-if="APP.error" style="color: red">{{ APP.error }}</div>
+
+      <div class="tabs">
+        <button
+          v-for="title in Object.keys(APP.tables)"
+          :key="title"
+          @click="APP.activeTab = title"
+          :class="{ active: APP.activeTab === title }"
+        >
+          {{ title }} ({{APP.tables[title].length}})
+        </button>
+      </div>
+      <div class="tab-content">
+        <div
+          v-for="title in Object.keys(APP.tables)"
+          :key="title"
+          v-show="APP.activeTab === title"
+        >
+          <table
+            v-if="APP.tables[title].length"
+            @click="copyTable(APP.tables[title])"
+          >
+            <thead>
+              <tr>
+                <th
+                  v-for="(key, index) in Object.keys(APP.tables[title][0])"
+                  :key="index"
+                >
+                  {{ key.toUpperCase() }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, r) in APP.tables[title]" :key="r">
+                <td v-for="(value, v) in Object.values(row)" :key="v">
+                  {{ value }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const { createApp, reactive, onMounted, watch } = Vue;
+      createApp({
+        setup() {
+          const safeParse = (json, defaultValue) => {
+            try {
+              if (!json) throw "";
+              return JSON.parse(json);
+            } catch (e) {
+              return defaultValue;
+            }
+          };
+          const APP = reactive({
+            now: new Date(),
+            filter: {
+              cookie: localStorage.getItem("cookie") || "",
+              unidade: localStorage.getItem("unidade") || "",
+              startDate:
+                localStorage.getItem("startDate") ||
+                new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1)
+                  .toISOString()
+                  .split("T")[0],
+              endDate:
+                localStorage.getItem("endDate") ||
+                new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
+                  .toISOString()
+                  .split("T")[0],
+            },
+            loading: false,
+            error: null,
+            message: "",
+            enable: false,
+            currentIgreja: null,
+            activeTab: "Igrejas",
+            isFullscreen: false,
+            tables: safeParse(localStorage.getItem("tables"), {
+              Igrejas: [],
+              Eventos: [],
+              Fluxos: [],
+            }),
+            async loadAll() {
+              APP.loading = true;
+              APP.error = null;
+              try {
+                await SIGA.login(APP.filter.cookie);
+                APP.message =
+                  "Bem vindo(a) " +
+                  SIGA.username +
+                  "\n</br>Estamos trabalhando...";
+                const result = await SIGA.loadAll(
+                  APP.filter.startDate,
+                  APP.filter.endDate,
+                  APP.filter.unidade
+                );
+                APP.tables.Igrejas = result.igrejas;
+                APP.tables.Eventos = result.eventos;
+                APP.tables.Fluxos = result.fluxos;
+                localStorage.setItem("tables", JSON.stringify(APP.tables));
+                console.log("Result dados SIGA:: ", result);
+              } catch (err) {
+                console.log("Erro ", err);
+                APP.error = err.message;
+              } finally {
+                APP.loading = false;
+              }
+            },
+          });
+
+          watch(
+            () => APP.filter.cookie,
+            async (newValue) => {
+              try {
+                localStorage.setItem("cookie", newValue);
+              } catch (error) {
+                const msg = "Erro ao logar no SIGA::: " + error;
+                console.warn(msg);
+                APP.error = msg;
+              }
+            }
+          );
+
+          watch(
+            () => APP.filter.startDate,
+            async (newValue) => localStorage.setItem("startDate", newValue)
+          );
+
+          watch(
+            () => APP.filter.endDate,
+            async (newValue) => localStorage.setItem("endDate", newValue)
+          );
+
+          watch(
+            () => APP.filter.unidade,
+            async (newValue) => localStorage.setItem("unidade", newValue)
+          );
+
+          const copyTable = (data) => {
+            if (data.length === 0) {
+              return;
+            }
+            const headers = Object.keys(data[0]);
+            const tsvData = [
+              headers.join("\t"),
+              ...data.map((row) =>
+                headers.map((header) => row[header] || "").join("\t")
+              ),
+            ].join("\n");
+            navigator.clipboard
+              .writeText(tsvData)
+              .then(() => {
+                console.log("Dados copiados para clipboard: ", tsvData);
+              })
+              .catch((err) => {
+                console.error("Erro ao copiar os dados:", err);
+              });
+          };
+
+          const toggleFullscreen = () => {
+            const element = document.getElementById("app");
+
+            const requestFullscreen =
+              element.requestFullscreen ||
+              element.mozRequestFullScreen ||
+              element.webkitRequestFullscreen ||
+              element.msRequestFullscreen;
+
+            if (!document.fullscreenElement) {
+              requestFullscreen?.call(element).then(() => {
+                element.classList.add("fullscreen-active");
+              });
+              APP.isFullscreen = true;
+            } else {
+              APP.isFullscreen = false;
+              if (document.exitFullscreen) {
+                document.exitFullscreen();
+              }
+            }
+          };
+
+          const fullscreenIcon = () => {
+            return APP.isFullscreen ? "fas fa-compress" : "fas fa-expand";
+          };
+
+          onMounted(() => {
+            console.log("Mounted");
+          });
+
+          return {
+            APP,
+            copyTable,
+            toggleFullscreen,
+          };
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>

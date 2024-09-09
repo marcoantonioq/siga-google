@@ -17,46 +17,121 @@ export const SIGA = {
   },
 
   async fetch(options) {
-    this.error = null;
-    this.loading = true;
-    if (!Array.isArray(options)) {
-      options = [options];
-    }
-    try {
-      const requests = options.map((option) => {
-        const optionsDefault = {
-          headers: {},
-          // muteHttpExceptions: true,
-          ...option,
-        };
-        optionsDefault.headers.Cookie = this.cookie || "";
-        const matchToken =
-          typeof this.cookie === "string"
-            ? this.cookie.match(/__AntiXsrfToken=([^;]+)/)?.[1]
-            : null;
-        optionsDefault.headers["__AntiXsrfToken"] = matchToken || null;
-        return optionsDefault;
-      });
-
-      const responses = await new Promise((resolve, reject) => {
-        // eslint-disable-next-line no-undef
-        google.script.run
-          .withSuccessHandler(resolve)
-          .withFailureHandler(reject)
-          .fetch(requests);
-      });
-
-      return responses.length === 1 ? responses[0] : responses;
-    } catch (error) {
-      console.error(
-        "Erro ao realizar consulta fetch: " + options[0].url + error
-      );
-      this.error = error;
-    } finally {
-      this.loading = false;
-    }
+    options;
+    return {
+      code: "",
+      body: "",
+      type: "",
+      blobBytes: "",
+      headers: {},
+    };
   },
+  async setFetchDefault() {
+    this.fetch = async (options) => {
+      this.error = null;
+      this.loading = true;
+      const result = {
+        code: null,
+        body: null,
+        type: null,
+        blobBytes: null,
+        headers: {},
+      };
 
+      const requests = Array.isArray(options) ? options : [options];
+
+      const fetch_promises = requests.map(async (option) => {
+        const headers = {
+          ...option.headers,
+          Cookie: this.cookie || "",
+          __AntiXsrfToken: this.cookie
+            ? this.cookie.match(/__AntiXsrfToken=([^;]+)/)?.[1] || null
+            : null,
+        };
+
+        const fetchOptions = {
+          ...option,
+          headers,
+          redirect: "follow",
+        };
+
+        try {
+          if (fetchOptions.payload) {
+            fetchOptions.body = fetchOptions.payload;
+          }
+          const response = await fetch(fetchOptions.url, fetchOptions);
+          const body = await response.text();
+          result.code = response.status;
+          result.body = body;
+          result.type = response.headers.get("Content-Type") || "";
+          result.blobBytes = ""; // Adicione lógica se precisar do conteúdo binário
+          result.headers = Array.from(response.headers.entries()).reduce(
+            (acc, [key, value]) => {
+              acc[key] = value;
+              return acc;
+            },
+            {}
+          );
+          return result;
+        } catch (error) {
+          console.error("Erro ao realizar consulta fetch:", error);
+          this.error = error;
+          return result;
+        }
+      });
+      try {
+        const results = await Promise.all(fetch_promises);
+        return results.length === 1 ? results[0] : results;
+      } catch (error) {
+        console.error("Erro ao processar fetch:", error);
+        this.error = error;
+      } finally {
+        this.loading = false;
+      }
+    };
+  },
+  setFetchGoogle() {
+    this.fetch = async (options) => {
+      this.error = null;
+      this.loading = true;
+      if (!Array.isArray(options)) {
+        options = [options];
+      }
+      try {
+        const requests = options.map((option) => {
+          const optionsDefault = {
+            headers: {},
+            // muteHttpExceptions: true,
+            ...option,
+          };
+          optionsDefault.headers.Cookie = this.cookie || "";
+          const matchToken =
+            typeof this.cookie === "string"
+              ? this.cookie.match(/__AntiXsrfToken=([^;]+)/)?.[1]
+              : null;
+          optionsDefault.headers["__AntiXsrfToken"] = matchToken || null;
+          return optionsDefault;
+        });
+
+        const responses = await new Promise((resolve, reject) => {
+          // eslint-disable-next-line no-undef
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .fetch(requests);
+        });
+
+        return responses.length === 1 ? responses[0] : responses;
+      } catch (error) {
+        console.error(
+          "Erro ao realizar consulta fetch: " + options[0].url + error
+        );
+        this.error = error;
+      } finally {
+        this.loading = false;
+      }
+    };
+  },
   betweenDates(dataInicial, dataFinal) {
     const resultado = [];
     const start = new Date(dataInicial);
@@ -97,8 +172,6 @@ export const SIGA = {
     } else {
       throw new Error("Por favor, informe o cookie");
     }
-
-    console.log("Cookie:::", cookie);
 
     if (this.pageLogin) {
       return this.pageLogin;
@@ -721,7 +794,7 @@ export const SIGA = {
         }),
       });
       const data = JSON.parse(body);
-      if (data.d.aaData && code == 200) {
+      if (data?.d?.aaData && code == 200) {
         data.d.aaData
           .map(([DATA, SEMANA, HORA, GRUPO, IGREJA, , STATUS, ID]) => {
             return {
@@ -739,7 +812,6 @@ export const SIGA = {
     } catch (erro) {
       console.warn("Erro ao obter Eventos: ", erro);
     }
-    console.log("Eventos obtidos: ", eventos);
     return eventos;
   },
 
@@ -844,9 +916,10 @@ export const SIGA = {
         );
       }
 
-      console.log("Igrejas e ADM(s): ", igrejasFiltered.length);
+      const adms = igrejasFiltered.filter((i) => i.type === 3);
+      console.log("Igrejas e ADM(s): ", adms.length, adms);
 
-      for (const igreja of igrejasFiltered.filter((i) => i.type === 3)) {
+      for (const igreja of adms) {
         await this.alterarIgreja(igreja);
 
         (await this.obterFluxoMapaColetas(startDate, endDate)).forEach((e) =>
@@ -886,8 +959,8 @@ export const SIGA = {
         // break;
       }
       this.igrejas = igrejas;
-      this.eventos = eventos;
       this.fluxos = fluxos;
+      this.eventos = eventos;
     } catch (err) {
       console.log("!!! Erro geral::: ", err);
       this.error = err.message;
@@ -901,5 +974,7 @@ export const SIGA = {
     };
   },
 };
+
+SIGA.setFetchDefault();
 
 export default SIGA;
