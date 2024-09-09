@@ -1,29 +1,30 @@
 <template>
-  mostrar tabelas....
-  <div class="tabs">
-    <button v-for="title in Object.keys(tables)" :key="title" @click="activeTab = title"
-      :class="{ active: activeTab === title }">
-      {{ title }} ({{ tables[title].length }})
-    </button>
-  </div>
-  <div class="tab-content">
-    <div v-for="title in Object.keys(tables)" :key="title" v-show="activeTab === title">
-      <table v-if="tables[title].length" @click="copyTable(tables[title])">
-        <thead>
-          <tr>
-            <th v-for="(key, index) in Object.keys(tables[title][0])" :key="index">
-              {{ key.toUpperCase() }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, r) in tables[title]" :key="r">
-            <td v-for="(value, v) in Object.values(row)" :key="v">
-              {{ value }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+  <div v-show="titlesTab.length">
+    <div class="tabs">
+      <button v-for="title in titlesTab" :key="title" @click="activeTab = title"
+        :class="{ active: activeTab === title }">
+        {{ title }} ({{ tables[title].length }})
+      </button>
+    </div>
+    <div class="tab-content">
+      <div v-for="title in titlesTab" :key="title" v-show="activeTab === title">
+        <table v-if="tables[title].length" @click="copyTable(tables[title])">
+          <thead>
+            <tr>
+              <th v-for="(key, index) in Object.keys(tables[title][0])" :key="index">
+                {{ key.toUpperCase() }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, r) in tables[title]" :key="r">
+              <td v-for="(value, v) in Object.values(row)" :key="v">
+                {{ value }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </template>
@@ -34,12 +35,13 @@ import { ref, defineProps } from 'vue';
 const props = defineProps({
   tables: {
     type: Object,
-    required: true
+    required: false
   }
 });
 
-const tables = ref(props.tables);
-const activeTab = ref(Object.keys(tables.value)[0]);
+const tables = ref(props.tables || {});
+const titlesTab = Object.keys(tables.value);
+const activeTab = ref(titlesTab[0]);
 
 const copyTable = (data) => {
   if (data.length === 0) return;

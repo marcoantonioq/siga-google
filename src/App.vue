@@ -1,17 +1,19 @@
 <template>
   <div>
-    SIGA
-    <!-- <ShowTables :tables="APP.tables" /> -->
+    <FormFilter />
+    <ShowTables :tables="state.tables" />
+    <pre>
+{{ state }}
+    </pre>
   </div>
 </template>
 
 <script setup>
 
-import { useApp } from './composables/app.js';
-// import ShowTables from "./components/ShowTables.vue"
+import { state } from './composables/app.js';
+import ShowTables from "./components/ShowTables.vue"
+import FormFilter from "./components/FormFilter.vue"
 
-const APP = useApp();
-console.log("App: ", APP)
 
 </script>
 

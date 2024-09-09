@@ -29,10 +29,12 @@ export const SIGA = {
           // muteHttpExceptions: true,
           ...option,
         };
-        optionsDefault.headers.Cookie = this.cookie;
-        optionsDefault.headers["__AntiXsrfToken"] = this.cookie.match(
-          /__AntiXsrfToken=([^;]+)/
-        )[1];
+        optionsDefault.headers.Cookie = this.cookie || "";
+        const matchToken =
+          typeof this.cookie === "string"
+            ? this.cookie.match(/__AntiXsrfToken=([^;]+)/)?.[1]
+            : null;
+        optionsDefault.headers["__AntiXsrfToken"] = matchToken || null;
         return optionsDefault;
       });
 
@@ -95,6 +97,8 @@ export const SIGA = {
     } else {
       throw new Error("Por favor, informe o cookie");
     }
+
+    console.log("Cookie:::", cookie);
 
     if (this.pageLogin) {
       return this.pageLogin;

@@ -1,100 +1,88 @@
 import { reactive, watch } from "vue";
 import SIGA from "./siga";
 
-const safeParse = (json, defaultValue) => {
+const safeLocal = (key, defaultValue) => {
   try {
-    console.log("Json", json);
-    if (json === undefined || json === "" || !json) throw "";
-    return JSON.parse(json);
+    const value = localStorage.getItem(key);
+    if (!value) throw "";
+    return JSON.parse(value);
   } catch (e) {
     return defaultValue;
   }
 };
 
-export function useApp() {
-  const APP = reactive({
-    now: new Date(),
-    filter: {
-      cookie: localStorage.getItem("cookie") || "",
-      unidade: localStorage.getItem("unidade") || "",
-      startDate:
-        localStorage.getItem("startDate") ||
-        new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1)
-          .toISOString()
-          .split("T")[0],
-      endDate:
-        localStorage.getItem("endDate") ||
-        new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
-          .toISOString()
-          .split("T")[0],
-    },
-    loading: false,
-    error: null,
-    message: "",
-    enable: false,
-    currentIgreja: null,
-    activeTab: "Igrejas",
-    isFullscreen: false,
-    tables: safeParse(localStorage.getItem("tables"), {
-      Igrejas: [],
-      Eventos: [],
-      Fluxos: [],
-    }),
-    async loadAll() {
-      APP.loading = true;
-      APP.error = null;
-      try {
-        await SIGA.login(APP.filter.cookie);
-        APP.message =
-          "Bem vindo(a) " + SIGA.username + "\n</br>Estamos trabalhando...";
-        const result = await SIGA.loadAll(
-          APP.filter.startDate,
-          APP.filter.endDate,
-          APP.filter.unidade
-        );
-        APP.tables.Igrejas = result.igrejas;
-        APP.tables.Eventos = result.eventos;
-        APP.tables.Fluxos = result.fluxos;
-        localStorage.setItem("tables", JSON.stringify(APP.tables));
-        console.log("Result dados SIGA:: ", result);
-      } catch (err) {
-        console.log("Erro ", err);
-        APP.error = err.message;
-      } finally {
-        APP.loading = false;
-      }
-    },
-  });
+export const state = reactive({
+  now: new Date(),
+  filter: {
+    cookie: "",
+    unidade: safeLocal("unidade", ""),
+    startDate: safeLocal(
+      "startDate",
+      new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1)
+        .toISOString()
+        .split("T")[0]
+    ),
+    endDate: safeLocal(
+      "endDate",
+      new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
+        .toISOString()
+        .split("T")[0]
+    ),
+  },
+  loading: false,
+  error: null,
+  message: "",
+  enable: false,
+  currentIgreja: null,
+  activeTab: "Igrejas",
+  isFullscreen: false,
+  tables: safeLocal("tables", {
+    Igrejas: [],
+    Eventos: [],
+    Fluxos: [],
+  }),
+});
 
-  watch(
-    () => APP.filter.cookie,
-    async (newValue) => {
-      try {
-        localStorage.setItem("cookie", newValue);
-      } catch (error) {
-        const msg = "Erro ao logar no SIGA::: " + error;
-        console.warn(msg);
-        APP.error = msg;
-      }
-    }
-  );
+state.filter.cookie = safeLocal("cookie", "");
 
-  watch(
-    () => APP.filter.startDate,
-    async (newValue) => localStorage.setItem("startDate", newValue)
-  );
-
-  watch(
-    () => APP.filter.endDate,
-    async (newValue) => localStorage.setItem("endDate", newValue)
-  );
-
-  watch(
-    () => APP.filter.unidade,
-    async (newValue) => localStorage.setItem("unidade", newValue)
-  );
-
-  return {
-    APP,
-  };
+export async function loadAll() {
+  state.loading = true;
+  state.error = null;
+  try {
+    await SIGA.login(state.filter.cookie);
+    state.message =
+      "Bem vindo(a) " + SIGA.username + "\n</br>Estamos trabalhando...";
+    const result = await SIGA.loadAll(
+      state.filter.startDate,
+      state.filter.endDate,
+      state.filter.unidade
+    );
+    state.tables.Igrejas = result.igrejas;
+    state.tables.Eventos = result.eventos;
+    state.tables.Fluxos = result.fluxos;
+    localStorage.setItem("tables", JSON.stringify(state.tables));
+    console.log("Dados SIGA carregados: ", result);
+  } catch (err) {
+    console.log("Erro: ", err);
+    state.error = err.message;
+  } finally {
+    state.loading = false;
+  }
 }
+
+watch(
+  () => state.filter.cookie,
+  (newValue) => localStorage.setItem("cookie", newValue)
+);
+watch(
+  () => state.filter.startDate,
+  (newValue) => localStorage.setItem("startDate", newValue)
+);
+watch(
+  () => state.filter.endDate,
+  (newValue) => localStorage.setItem("endDate", newValue)
+);
+watch(
+  () => state.filter.unidade,
+  (newValue) => localStorage.setItem("unidade", newValue)
+);
